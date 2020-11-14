@@ -1,4 +1,4 @@
-# puddle
+# async-object-pool
 A simple object pool implementation that uses asynchronous synchronization primitives only. 
 
 You can use it as follows:
@@ -22,3 +22,9 @@ pool.put(item).await;
 ```
 
 This crate is used to pool HTTP mock servers in [httpmock](https://github.com/alexliesenfeld/httpmock).
+
+## License
+`async-object-pool` is free software: you can redistribute it and/or modify it under the terms of the MIT Public License.
+ 
+This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied 
+warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the MIT Public License for more details.
