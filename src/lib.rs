@@ -1,39 +1,41 @@
 use async_std::sync::{Condvar, Mutex};
 
-#[derive(Debug)]
-pub struct Pool<T> {
+pub struct Pool<T, F> where F: Fn() -> T {
     sync_tuple: Mutex<(Vec<T>, usize)>,
-    cvar: Condvar,
-    max: usize,
+    condvar: Condvar,
+    create_max: usize,
+    creator_fn: F,
 }
 
-impl<T> Pool<T> {
-    pub fn new(max: usize) -> Self {
+impl<T, F> Pool<T, F> where F: Fn() -> T {
+    pub fn new(create_max: usize, creator_fn: F) -> Self
+    where
+        F: Fn() -> T,
+    {
         Self {
             sync_tuple: Mutex::new((Vec::new(), 0)),
-            cvar: Condvar::new(),
-            max,
+            condvar: Condvar::new(),
+            creator_fn,
+            create_max,
         }
     }
 
     pub async fn put(&self, item: T) {
         let mut lock_guard = (&self.sync_tuple).lock().await;
         (*lock_guard).0.push(item);
-        self.cvar.notify_one();
+        self.condvar.notify_one();
     }
 
-    pub async fn take<F>(&self, create: F) -> T
-    where
-        F: FnOnce() -> T,
-    {
+    pub async fn take(&self) -> T {
         let mut lock_guard = (&self.sync_tuple).lock().await;
 
-        while (*lock_guard).0.is_empty() && (*lock_guard).1 == self.max {
-            lock_guard = self.cvar.wait(lock_guard).await;
+        while (*lock_guard).0.is_empty() && (*lock_guard).1 == self.create_max {
+            lock_guard = self.condvar.wait(lock_guard).await;
         }
 
-        if (*lock_guard).1 < self.max {
-            (*lock_guard).0.push(create());
+        if (*lock_guard).1 < self.create_max {
+            let elem = (self.creator_fn)();
+            (*lock_guard).0.push(elem);
             (*lock_guard).1 += 1;
         }
 
