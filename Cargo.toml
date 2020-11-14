@@ -11,4 +11,4 @@ license = "MIT"
 repository = "https://github.com/alexliesenfeld/async-object-pool"
 
 [dependencies]
-async-std = {version = "1.6.2", features = ["unstable"] }
+async-std = {version = "1.7.0", features = ["unstable"] }
