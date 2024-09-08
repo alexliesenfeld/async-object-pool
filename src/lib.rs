@@ -41,24 +41,26 @@ impl<T> Pool<T> {
 
 #[cfg(test)]
 mod tests {
+    use async_std::task;
     use crate::Pool;
 
-    #[async_std::test]
-    async fn usage_example() -> std::io::Result<()> {
-        // Create a new pool that will allow to create at most 100 items
-        let pool = Pool::new(100);
+    #[test]
+    fn usage_example() -> std::io::Result<()> {
+        task::block_on(async {
+            // Create a new pool that will allow to create at most 100 items
+            let pool = Pool::new(100);
 
-        // Take an item from the pool or create a new item if the pool is empty
-        // but the maximum number of pooled items was not created yet.
-        // This will asynchronously block execution until an item can be returned.
-        let item = pool.take_or_create(|| String::from("hello")).await;
+            // Take an item from the pool or create a new item if the pool is empty
+            // but the maximum number of pooled items was not created yet.
+            // This will asynchronously block execution until an item can be returned.
+            let item = pool.take_or_create(|| String::from("hello")).await;
 
-        // Use your item
-        println!("{}", item);
+            // Use your item
+            println!("{}", item);
 
-        // After using the item, put it back into the pool so it can be reused elsewhere
-        pool.put(item).await;
-
+            // After using the item, put it back into the pool so it can be reused elsewhere
+            pool.put(item).await;
+        });
         Ok(())
     }
 }
