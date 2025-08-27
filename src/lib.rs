@@ -1,66 +1,47 @@
-use async_std::sync::{Condvar, Mutex};
+use async_lock::Mutex;
+use event_listener::Event;
 
 pub struct Pool<T> {
-    sync_tuple: Mutex<(Vec<T>, usize)>,
-    condvar: Condvar,
-    create_max: usize
+    state: Mutex<(Vec<T>, usize)>,
+    ev: Event,
+    create_max: usize,
 }
 
 impl<T> Pool<T> {
     pub fn new(create_max: usize) -> Self {
-        Self {
-            sync_tuple: Mutex::new((Vec::new(), 0)),
-            condvar: Condvar::new(),
-            create_max,
-        }
+        Self { state: Mutex::new((Vec::new(), 0)), ev: Event::new(), create_max }
     }
 
     pub async fn put(&self, item: T) {
-        let mut lock_guard = (&self.sync_tuple).lock().await;
-        (*lock_guard).0.push(item);
-        self.condvar.notify_one();
+        {
+            let mut g = self.state.lock().await;
+            g.0.push(item);
+        }
+        self.ev.notify(1);
     }
 
-    pub async fn take_or_create<F>(&self, creator_fn: F) -> T where
-        F: Fn() -> T {
-        let mut lock_guard = (&self.sync_tuple).lock().await;
+    pub async fn take_or_create<F>(&self, create: F) -> T
+    where
+        F: Fn() -> T,
+    {
+        loop {
+            {
+                let mut g = self.state.lock().await;
 
-        while (*lock_guard).0.is_empty() && (*lock_guard).1 == self.create_max {
-            lock_guard = self.condvar.wait(lock_guard).await;
+                if !g.0.is_empty() {
+                    return g.0.remove(0);
+                }
+
+                if g.1 < self.create_max {
+                    g.0.push(create());
+                    g.1 += 1;
+                    return g.0.remove(0);
+                }
+
+                let listener = self.ev.listen();
+                drop(g);
+                listener.await;  // wake when someone `put`s
+            }
         }
-
-        if (*lock_guard).1 < self.create_max {
-            (*lock_guard).0.push((creator_fn)());
-            (*lock_guard).1 += 1;
-        }
-
-        return (*lock_guard).0.remove(0);
-    }
-}
-
-
-#[cfg(test)]
-mod tests {
-    use async_std::task;
-    use crate::Pool;
-
-    #[test]
-    fn usage_example() -> std::io::Result<()> {
-        task::block_on(async {
-            // Create a new pool that will allow to create at most 100 items
-            let pool = Pool::new(100);
-
-            // Take an item from the pool or create a new item if the pool is empty
-            // but the maximum number of pooled items was not created yet.
-            // This will asynchronously block execution until an item can be returned.
-            let item = pool.take_or_create(|| String::from("hello")).await;
-
-            // Use your item
-            println!("{}", item);
-
-            // After using the item, put it back into the pool so it can be reused elsewhere
-            pool.put(item).await;
-        });
-        Ok(())
     }
 }

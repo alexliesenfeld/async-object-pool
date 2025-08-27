@@ -1,6 +1,6 @@
 [package]
 name = "async-object-pool"
-version = "0.1.5"
+version = "0.2.0"
 authors = ["Alexander Liesenfeld <alexander.liesenfeld@outlook.com>"]
 edition = "2018"
 description = "A simple object pool implementation that uses asynchronous synchronization primitives only."
@@ -11,4 +11,5 @@ license = "MIT"
 repository = "https://github.com/alexliesenfeld/async-object-pool"
 
 [dependencies]
-async-std = { version = "1.13.0", features = ["unstable"] }
+async-lock = "3"
+event-listener = "5"
